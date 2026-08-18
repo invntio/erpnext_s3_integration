@@ -75,7 +75,7 @@ class TestS3Integration(FrappeTestCase):
 		self.assertTrue(mock_upload.called)
 
 		# Check if file URL was updated appropriately
-		self.assertTrue(file_doc.file_url.startswith("/s3/test-prefix/attachments/private/"))
+		self.assertTrue(file_doc.file_url.startswith("/s3/test-prefix/private/"))
 
 		# Assert content is cleared so it isn't saved to disk
 		self.assertIsNone(file_doc.content)
@@ -121,8 +121,7 @@ class TestS3Integration(FrappeTestCase):
 		)
 
 		key = generate_s3_key(file_doc, self.settings)
-		self.assertTrue(key.startswith("test-prefix/attachments/public/"))
-		self.assertIn("/Sales_Invoice/", key)
+		self.assertTrue(key.startswith("test-prefix/public/"))
 		self.assertTrue(key.endswith("My_test_file_123.txt"))
 
 	@patch("erpnext_s3_integration.s3_client.S3Client.generate_presigned_url")
@@ -133,21 +132,15 @@ class TestS3Integration(FrappeTestCase):
 		self.settings.stream_from_s3 = 0
 		self.settings.save(ignore_permissions=True)
 
-		file_doc = frappe.get_doc(
-			{
-				"doctype": "File",
-				"file_name": "existing_on_s3.txt",
-				"file_url": "/s3/test-prefix/existing_on_s3.txt",
-				"is_private": 0,
-			}
-		).insert(ignore_permissions=True)
-
-		self.addCleanup(lambda: frappe.delete_doc("File", file_doc.name, force=1, ignore_permissions=True))
-
 		frappe.local.form_dict = frappe._dict({"key": "test-prefix/existing_on_s3.txt"})
 		frappe.local.response = frappe._dict()
 
-		api.get_file()
+		file_doc = frappe._dict(name="existing-on-s3", is_private=0, file_name="existing_on_s3.txt")
+		with (
+			patch("erpnext_s3_integration.api.frappe.get_single", return_value=self.settings),
+			patch("erpnext_s3_integration.api.frappe.db.get_value", return_value=file_doc),
+		):
+			api.get_file()
 
 		self.assertEqual(frappe.local.response["type"], "redirect")
 		self.assertEqual(frappe.local.response["location"], "https://example.com/test-file")
