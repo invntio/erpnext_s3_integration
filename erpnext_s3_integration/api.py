@@ -3,6 +3,9 @@ from werkzeug.wrappers import Response
 from werkzeug.wsgi import wrap_file
 
 
+logger = frappe.logger("erpnext_s3_integration")
+
+
 @frappe.whitelist(allow_guest=True)  # nosemgrep
 def get_file():
 	"""Serves files from S3. Routed internally via utils.before_request"""
@@ -47,7 +50,7 @@ def get_file():
 			response.headers["Content-Disposition"] = content_disposition
 			return response
 		except Exception as e:
-			frappe.log_error(f"Error streaming file from S3: {e}")
+			logger.error("Error streaming file from S3: %s", e, exc_info=True)
 			raise frappe.DoesNotExistError()
 	else:
 		# Return a temporary redirect to the S3 URL

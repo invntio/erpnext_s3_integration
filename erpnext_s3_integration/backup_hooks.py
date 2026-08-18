@@ -3,6 +3,9 @@ import os
 import frappe
 
 
+logger = frappe.logger("erpnext_s3_integration")
+
+
 def after_backup():
 	"""Uploads database and file backups to S3 after a Frappe backup runs."""
 	settings = frappe.get_single("S3 Integration Settings")
@@ -18,7 +21,7 @@ def after_backup():
 
 	if not os.path.exists(backup_path):
 		error_msg = f"Backup directory not found at {backup_path}"
-		frappe.log_error(error_msg, "S3 Backup Sync Error")
+		logger.error(error_msg)
 		log_s3_sync("Failed", error_msg)
 		return
 
@@ -74,7 +77,7 @@ def after_backup():
 					os.remove(full_path)
 			except Exception as e:
 				error_msg = f"S3 Backup Sync Failed for {file}: {e}"
-				frappe.log_error(error_msg, "S3 Backup Sync")
+				logger.error(error_msg, exc_info=True)
 				log_s3_sync("Failed", error_msg)
 
 	if uploaded_count > 0:
@@ -110,7 +113,7 @@ def cleanup_old_backups(s3_client, prefix, retention_days):
 				"Success", f"Cleaned up {deleted_count} S3 backup(s) older than {retention_days} days."
 			)
 	except Exception as e:
-		frappe.log_error(f"S3 Backup Cleanup Failed: {e}", "S3 Backup Sync Error")
+		logger.error("S3 backup cleanup failed: %s", e, exc_info=True)
 		log_s3_sync("Failed", f"Backup cleanup failed: {e}")
 
 
@@ -123,7 +126,7 @@ def log_s3_sync(status, message):
 			log.insert(ignore_permissions=True)
 			frappe.db.commit()  # nosemgrep
 	except Exception as e:
-		frappe.log_error(f"Failed to create S3 Sync Log: {e!s}", "S3 Sync Log Error")
+		logger.error("Failed to create S3 Sync Log: %s", e, exc_info=True)
 
 
 def scheduled_backup_and_sync():
@@ -162,9 +165,10 @@ def scheduled_backup_and_sync():
 			frappe.db.commit()  # nosemgrep
 
 	except CroniterBadCronError:
-		frappe.log_error(
-			f"Invalid CRON expression in S3 Settings: {settings.backup_cron_expression}",
-			"S3 Backup Sync Error",
+		logger.error(
+			"Invalid CRON expression in S3 Settings: %s",
+			settings.backup_cron_expression,
+			exc_info=True,
 		)
 	except Exception as e:
 		log_s3_sync(

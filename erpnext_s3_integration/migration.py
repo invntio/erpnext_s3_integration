@@ -7,6 +7,9 @@ from frappe.utils import cint
 from erpnext_s3_integration.file_hooks import generate_s3_key
 
 
+logger = frappe.logger("erpnext_s3_integration")
+
+
 @frappe.whitelist()
 def start_migration(only_unmigrated: bool = True):
 	frappe.only_for("System Manager")
@@ -56,7 +59,7 @@ def run_migration(only_unmigrated):
 	if not total_files:
 		message = "Migration completed.\nSuccessfully Migrated: 0\nSkipped: 0\nFailed: 0"
 		print(message)
-		frappe.log_error(message, "S3 Migration Summary")
+		logger.info(message)
 		return
 
 	for i, f in enumerate(files):
@@ -77,7 +80,7 @@ def run_migration(only_unmigrated):
 			local_path = doc.get_full_path()
 			if not os.path.exists(local_path):
 				# File is missing locally
-				frappe.log_error(f"Migration: File missing locally for {doc.name}: {local_path}")
+				logger.error("Migration: file missing locally for %s: %s", doc.name, local_path)
 				failed_count += 1
 				continue
 
@@ -106,10 +109,7 @@ def run_migration(only_unmigrated):
 			print(f"Migrated {f.file_name}")
 		except Exception as e:
 			print(f"Error migrating {f.file_name}: {e}")
-			frappe.log_error(
-				message=frappe.get_traceback(),
-				title=f"Migration Error for File {f.name}",
-			)
+			logger.error("Migration failed for file %s", f.name, exc_info=True)
 			failed_count += 1
 
 		frappe.publish_progress(
@@ -121,4 +121,4 @@ def run_migration(only_unmigrated):
 	# Final summary
 	message = f"Migration completed.<br>Successfully Migrated: {success_count}<br>Skipped: {skipped_count}<br>Failed: {failed_count}"
 	print(message.replace("<br>", "\n"))
-	frappe.log_error(message, "S3 Migration Summary")
+	logger.info(message)

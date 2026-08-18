@@ -3,6 +3,9 @@ from frappe import _
 from frappe.model.document import Document
 
 
+logger = frappe.logger("erpnext_s3_integration")
+
+
 class S3IntegrationSettings(Document):
 	def validate(self):
 		if self.enable_attachments_s3 or self.enable_backups_s3:
@@ -71,4 +74,4 @@ def run_backup_and_sync():
 		after_backup()
 
 	except Exception:
-		frappe.log_error(message=frappe.get_traceback(), title="Manual S3 Backup Sync Failed")
+		logger.error("Manual S3 backup sync failed", exc_info=True)
