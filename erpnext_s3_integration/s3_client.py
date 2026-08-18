@@ -5,6 +5,9 @@ from frappe import _
 from frappe.utils.password import get_decrypted_password
 
 
+logger = frappe.logger("erpnext_s3_integration")
+
+
 class S3Client:
 	def __init__(self):
 		self.settings = frappe.get_single("S3 Integration Settings")
@@ -59,10 +62,10 @@ class S3Client:
 			self._client.list_objects_v2(Bucket=self.bucket_name, MaxKeys=1)
 			return True, "Connection successful! Bucket is accessible."
 		except ClientError as e:
-			frappe.log_error(message=frappe.get_traceback(), title="S3 Test Connection Error")
+			logger.error("S3 test connection failed: %s", e, exc_info=True)
 			return False, f"Connection Failed: {e}"
 		except Exception as e:
-			frappe.log_error(message=frappe.get_traceback(), title="S3 Test Connection Failed")
+			logger.error("S3 test connection failed: %s", e, exc_info=True)
 			return False, f"Connection Failed: {e!s}"
 
 	def upload_fileobj(self, fileobj, key, content_type=None, is_public=False):
@@ -88,10 +91,10 @@ class S3Client:
 				extra_args.pop("ACL", None)
 				self._client.upload_fileobj(fileobj, self.bucket_name, key, ExtraArgs=extra_args)
 				return True
-			frappe.log_error(message=frappe.get_traceback(), title=f"S3 Upload Failed for {key}")
+			logger.error("S3 upload failed for %s: %s", key, e, exc_info=True)
 			raise frappe.ValidationError(f"Could not upload file to S3: {e}")
 		except Exception as e:
-			frappe.log_error(message=frappe.get_traceback(), title=f"S3 Upload Failed for {key}")
+			logger.error("S3 upload failed for %s: %s", key, e, exc_info=True)
 			raise frappe.ValidationError(f"Could not upload file to S3: {e}")
 
 	def delete_object(self, key):
@@ -99,7 +102,7 @@ class S3Client:
 			self._client.delete_object(Bucket=self.bucket_name, Key=key)
 			return True
 		except Exception:
-			frappe.log_error(message=frappe.get_traceback(), title=f"S3 Delete Failed for {key}")
+			logger.error("S3 delete failed for %s", key, exc_info=True)
 			# We don't raise here, so file deletion won't be blocked if S3 fails
 			return False
 
@@ -112,10 +115,7 @@ class S3Client:
 			)
 			return url
 		except Exception:
-			frappe.log_error(
-				message=frappe.get_traceback(),
-				title=f"S3 URL Generation Failed for {key}",
-			)
+			logger.error("S3 URL generation failed for %s", key, exc_info=True)
 			return None
 
 	def download_as_stream(self, key):
@@ -123,5 +123,5 @@ class S3Client:
 			response = self._client.get_object(Bucket=self.bucket_name, Key=key)
 			return response["Body"]
 		except Exception:
-			frappe.log_error(message=frappe.get_traceback(), title=f"S3 Downoad Failed for {key}")
+			logger.error("S3 download failed for %s", key, exc_info=True)
 			frappe.throw(f"File {key} not found on S3 or could not be streamed.")
