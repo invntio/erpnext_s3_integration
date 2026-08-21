@@ -175,7 +175,7 @@ class S3Client:
 		return self._client
 
 	def setup_client(self):
-		boto3, _ = _load_boto3()
+		boto3, _client_error = _load_boto3()
 		config_data = resolve_s3_config(self.settings)
 
 		aws_access_key_id = config_data.get("aws_access_key_id")
